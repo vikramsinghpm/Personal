@@ -1,0 +1,583 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>RAG Simulator — Learn Retrieval Augmented Generation</title>
+
+<style>
+:root{
+    --bg:#f5f7fb;
+    --card:#ffffff;
+    --text:#111827;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --primary:#5b5cf0;
+    --primary-dark:#4546d8;
+    --green:#16a34a;
+    --orange:#f59e0b;
+    --red:#ef4444;
+    --blue:#2563eb;
+    --shadow:0 10px 30px rgba(15,23,42,.08);
+    --radius:18px;
+}
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+}
+
+header{
+    background:
+        radial-gradient(circle at 10% 10%,rgba(91,92,240,.18),transparent 30%),
+        radial-gradient(circle at 90% 20%,rgba(37,99,235,.12),transparent 30%),
+        #fff;
+    border-bottom:1px solid var(--border);
+    padding:42px 24px 36px;
+}
+
+.header-inner{
+    max-width:1200px;
+    margin:auto;
+}
+
+.badge{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:#eef2ff;
+    color:#4f46e5;
+    padding:7px 12px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:700;
+    margin-bottom:16px;
+}
+
+h1{
+    font-size:clamp(32px,5vw,52px);
+    line-height:1.05;
+    letter-spacing:-2px;
+    margin:0 0 14px;
+}
+
+.subtitle{
+    max-width:760px;
+    color:var(--muted);
+    font-size:17px;
+    line-height:1.6;
+}
+
+.container{
+    max-width:1200px;
+    margin:32px auto 80px;
+    padding:0 20px;
+}
+
+/* PIPELINE */
+
+.pipeline{
+    display:grid;
+    grid-template-columns:repeat(9,1fr);
+    gap:8px;
+    margin-bottom:35px;
+}
+
+.pipeline-step{
+    background:white;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:13px 8px;
+    text-align:center;
+    cursor:pointer;
+    transition:.2s;
+}
+
+.pipeline-step:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow);
+}
+
+.pipeline-step.active{
+    border-color:var(--primary);
+    background:#f1f2ff;
+}
+
+.pipeline-number{
+    width:25px;
+    height:25px;
+    margin:0 auto 7px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    background:#eef2ff;
+    color:var(--primary);
+    font-size:12px;
+    font-weight:800;
+}
+
+.pipeline-title{
+    font-size:11px;
+    font-weight:700;
+    line-height:1.25;
+}
+
+/* CARDS */
+
+.card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:26px;
+    margin-bottom:22px;
+}
+
+.card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
+    margin-bottom:20px;
+}
+
+.card-title{
+    font-size:21px;
+    font-weight:800;
+    letter-spacing:-.4px;
+}
+
+.card-description{
+    color:var(--muted);
+    font-size:14px;
+    margin-top:5px;
+    line-height:1.5;
+}
+
+.tag{
+    display:inline-flex;
+    background:#f3f4f6;
+    border-radius:999px;
+    padding:6px 10px;
+    font-size:11px;
+    font-weight:700;
+    color:#4b5563;
+    white-space:nowrap;
+}
+
+/* GRID */
+
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+}
+
+@media(max-width:850px){
+    .grid{
+        grid-template-columns:1fr;
+    }
+
+    .pipeline{
+        grid-template-columns:repeat(3,1fr);
+    }
+}
+
+@media(max-width:500px){
+    .pipeline{
+        grid-template-columns:repeat(2,1fr);
+    }
+}
+
+/* INPUT */
+
+textarea,
+input{
+    width:100%;
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:13px 14px;
+    font:inherit;
+    outline:none;
+    background:#fafafa;
+    transition:.2s;
+}
+
+textarea{
+    min-height:150px;
+    resize:vertical;
+}
+
+textarea:focus,
+input:focus{
+    border-color:var(--primary);
+    background:#fff;
+    box-shadow:0 0 0 4px rgba(91,92,240,.08);
+}
+
+button{
+    border:0;
+    border-radius:11px;
+    padding:11px 16px;
+    font-weight:700;
+    cursor:pointer;
+    font:inherit;
+    transition:.2s;
+}
+
+button.primary{
+    background:var(--primary);
+    color:white;
+}
+
+button.primary:hover{
+    background:var(--primary-dark);
+}
+
+button.secondary{
+    background:#f3f4f6;
+    color:#374151;
+}
+
+button.secondary:hover{
+    background:#e5e7eb;
+}
+
+.button-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:14px;
+}
+
+/* DOCUMENT */
+
+.document{
+    border:1px solid var(--border);
+    background:#fafafa;
+    border-radius:13px;
+    padding:15px;
+    font-size:14px;
+    line-height:1.65;
+    max-height:250px;
+    overflow:auto;
+}
+
+.document strong{
+    color:var(--primary);
+}
+
+/* CHUNKS */
+
+.chunks{
+    display:grid;
+    gap:10px;
+}
+
+.chunk{
+    border:1px solid #dbeafe;
+    background:#eff6ff;
+    border-radius:12px;
+    padding:13px;
+    font-size:13px;
+    line-height:1.5;
+    position:relative;
+}
+
+.chunk-id{
+    display:inline-block;
+    font-size:10px;
+    font-weight:800;
+    color:#2563eb;
+    margin-bottom:5px;
+}
+
+/* EMBEDDING */
+
+.vector{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+}
+
+.vector span{
+    background:#eef2ff;
+    color:#4f46e5;
+    padding:5px 8px;
+    border-radius:6px;
+    font-size:11px;
+    font-family:monospace;
+}
+
+/* DATABASE */
+
+.db{
+    border:1px solid #d1fae5;
+    background:#f0fdf4;
+    border-radius:14px;
+    padding:15px;
+}
+
+.db-row{
+    display:grid;
+    grid-template-columns:70px 1fr 100px;
+    gap:10px;
+    align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid #dcfce7;
+    font-size:12px;
+}
+
+.db-row:last-child{
+    border-bottom:0;
+}
+
+.score{
+    text-align:right;
+    font-weight:800;
+    color:var(--green);
+}
+
+/* QUERY */
+
+.query-box{
+    display:flex;
+    gap:10px;
+}
+
+@media(max-width:600px){
+    .query-box{
+        flex-direction:column;
+    }
+}
+
+/* RETRIEVAL */
+
+.result{
+    border:1px solid var(--border);
+    border-radius:13px;
+    padding:15px;
+    margin-bottom:10px;
+    transition:.3s;
+}
+
+.result.relevant{
+    border-color:#86efac;
+    background:#f0fdf4;
+}
+
+.result-head{
+    display:flex;
+    justify-content:space-between;
+    margin-bottom:8px;
+}
+
+.similarity{
+    font-weight:800;
+    color:var(--green);
+}
+
+/* PROMPT */
+
+.prompt{
+    background:#111827;
+    color:#e5e7eb;
+    border-radius:14px;
+    padding:18px;
+    font-family:monospace;
+    font-size:13px;
+    line-height:1.7;
+    white-space:pre-wrap;
+    overflow:auto;
+}
+
+.prompt .context{
+    color:#93c5fd;
+}
+
+.prompt .question{
+    color:#86efac;
+}
+
+/* RESPONSE */
+
+.answer{
+    background:linear-gradient(135deg,#eef2ff,#f8fafc);
+    border:1px solid #c7d2fe;
+    border-radius:14px;
+    padding:20px;
+    line-height:1.7;
+}
+
+.answer-title{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    color:#4f46e5;
+    font-weight:800;
+    margin-bottom:8px;
+}
+
+/* EXPLANATION */
+
+.explanation{
+    border-left:4px solid var(--primary);
+    background:#f8fafc;
+    padding:15px 17px;
+    border-radius:0 12px 12px 0;
+    line-height:1.6;
+    color:#374151;
+}
+
+.mistake{
+    border-left-color:var(--orange);
+    background:#fffbeb;
+}
+
+.success{
+    border-left-color:var(--green);
+    background:#f0fdf4;
+}
+
+/* STATUS */
+
+.status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--muted);
+    font-size:13px;
+    margin-top:12px;
+}
+
+.dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:var(--green);
+}
+
+/* FLOW */
+
+.flow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.flow-node{
+    background:white;
+    border:1px solid var(--border);
+    padding:12px 15px;
+    border-radius:12px;
+    font-size:12px;
+    font-weight:700;
+}
+
+.arrow{
+    color:#9ca3af;
+    font-size:20px;
+}
+
+/* FOOTER */
+
+footer{
+    text-align:center;
+    color:#9ca3af;
+    font-size:12px;
+    padding:20px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="header-inner">
+
+<div class="badge">● INTERACTIVE LEARNING LAB</div>
+
+<h1>RAG Simulator</h1>
+
+<div class="subtitle">
+Understand Retrieval-Augmented Generation by following the complete journey
+from raw documents → chunks → embeddings → vector search → augmented prompt → LLM answer.
+</div>
+
+</div>
+</header>
+
+
+<div class="container">
+
+<!-- PIPELINE -->
+
+<div class="pipeline">
+
+<div class="pipeline-step active" onclick="scrollToSection('data')">
+<div class="pipeline-number">1</div>
+<div class="pipeline-title">Data</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('clean')">
+<div class="pipeline-number">2</div>
+<div class="pipeline-title">Clean</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('chunk')">
+<div class="pipeline-number">3</div>
+<div class="pipeline-title">Chunk</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('embed')">
+<div class="pipeline-number">4</div>
+<div class="pipeline-title">Embedding</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('db')">
+<div class="pipeline-number">5</div>
+<div class="pipeline-title">Vector DB</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('query')">
+<div class="pipeline-number">6</div>
+<div class="pipeline-title">Question</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('retrieve')">
+<div class="pipeline-number">7</div>
+<div class="pipeline-title">Retrieve</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('augment')">
+<div class="pipeline-number">8</div>
+<div class="pipeline-title">Augment</div>
+</div>
+
+<div class="pipeline-step" onclick="scrollToSection('generate')">
+<div class="pipeline-number">9</div>
+<div class="pipeline-title">Generate</div>
+</div>
+
+</div>
+
+
+<!-- STEP 1 -->
+
+<section class="card" id="data">
+
+<div class="card-header">
+<div>
+<div class="card-title">1. Your Knowledge Starts Here</div>
+<div class="card-descr
+```
